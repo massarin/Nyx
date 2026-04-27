@@ -470,7 +470,7 @@ public:
     //
     // Tell amrex::Amr to write a checkpoint file now
     //
-    bool checkPointNow() override;
+    bool checkPointNow();
 
     //
     // Tell Nyx to do analysis now

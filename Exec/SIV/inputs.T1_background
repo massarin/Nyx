@@ -1,0 +1,57 @@
+# T1: Background cosmology test — integrate a(t) under SIV, no particles.
+# Verifies H(t) and a(t) against the analytic formula.
+max_step = 200
+
+nyx.initial_z = 9.0
+nyx.final_a   = 1.0
+
+amr.data_log = runlog.T1
+
+gravity.no_sync      = 1
+gravity.no_composite = 1
+
+geometry.is_periodic = 1 1 1
+geometry.coord_sys   = 0
+geometry.prob_lo     = 0. 0. 0.
+geometry.prob_hi     = 32. 32. 32.
+
+amr.n_cell        = 8 8 8
+amr.max_grid_size = 8
+amr.max_level     = 0
+amr.blocking_factor = 8
+
+nyx.lo_bc = 0 0 0
+nyx.hi_bc = 0 0 0
+
+nyx.do_hydro = 0
+nyx.do_grav  = 1
+
+# SIV background
+nyx.siv_mode    = 1
+nyx.siv_Omega_m = 0.30
+
+# Dummy LCDM params (comoving_h must be nonzero for dt estimation)
+nyx.comoving_OmM = 0.30
+nyx.comoving_OmB = 0.30
+nyx.comoving_h   = 0.6737
+nyx.comoving_OmR = 0.0
+
+nyx.do_dm_particles = 1
+nyx.particle_init_type = Random
+nyx.particle_initrandom_count = 8
+nyx.particle_initrandom_iseed = 1
+nyx.particle_initrandom_mass  = 1.0
+nyx.particle_initrandom_mass_total = 1.0
+
+nyx.cfl           = 0.5
+nyx.init_shrink   = 0.1
+nyx.change_max    = 1.1
+nyx.dt_cutoff     = 5.e-20
+nyx.relative_max_change_a = 0.02
+
+amr.v          = 1
+nyx.v          = 1
+gravity.v      = 0
+
+amr.checkpoint_files_output = 0
+amr.plot_int = -1

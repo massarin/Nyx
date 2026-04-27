@@ -219,6 +219,15 @@ Nyx::est_maxdt_comoving_a(const Real old_a_local, Real & dt)
 
     OmL = 1.e0 - comoving_OmM - comoving_OmR;
 
+    // In SIV mode, limit dt_siv so that da/a = H_siv(t)*dt <= 2%
+    if (siv_mode)
+    {
+        Real t = siv_t_from_a(old_a_local, siv_Omega_m);
+        max_dt = 0.02 / siv_H(t, siv_Omega_m);
+        dt = amrex::min(dt, max_dt);
+        return;
+    }
+
     // This subroutine computes dt based on not changing a by more than 5%
     // if we use forward Euler integration
     //   d(ln(a)) / dt = H_0 * sqrt(OmM/a^3 + OmL)
@@ -228,7 +237,7 @@ Nyx::est_maxdt_comoving_a(const Real old_a_local, Real & dt)
     if (H_0 != 0.0)
     {
         if (comoving_type > 0)
-            max_dt = (0.05) / H_0 / std::sqrt( comoving_OmM/(old_a_local * old_a_local *old_a_local) 
+            max_dt = (0.05) / H_0 / std::sqrt( comoving_OmM/(old_a_local * old_a_local *old_a_local)
                                               +comoving_OmR/(old_a_local * old_a_local *old_a_local * old_a_local) + OmL);
         else
             max_dt = (0.05) / std::abs(comoving_h);
@@ -566,7 +575,7 @@ Nyx::integrate_comoving_a (Real time,Real dt)
         // Update a
         old_a      = new_a;
         integrate_comoving_a(old_a, new_a, dt);
-        if (siv_mode) t_siv += dt;
+        if (siv_mode) t_siv = siv_t_from_a(new_a, siv_Omega_m);
 
         // Update the times
         old_a_time = new_a_time;
@@ -584,7 +593,7 @@ Nyx::integrate_comoving_a (Real time,Real dt)
     {
         // Leave old_a and old_a_time alone -- we have already swapped them
         integrate_comoving_a(old_a, new_a, dt);
-        if (siv_mode) t_siv += dt;
+        if (siv_mode) t_siv = siv_t_from_a(new_a, siv_Omega_m);
 
         // Update the new time only
         new_a_time = old_a_time + dt;
@@ -660,12 +669,6 @@ Nyx::integrate_comoving_a (const Real old_a_local, Real& new_a_local, const Real
     Real start_a, end_a, start_slope, end_slope;
     int iter, j, nsteps;
 
-    if (comoving_h == 0.0)
-    {
-        new_a_local = old_a_local;
-        return;
-    }
-
     if (siv_mode)
     {
         // SIV: da/dt = H_siv(t)*a,  H_siv(t) = 2t^2/(t^3 - Om)
@@ -693,6 +696,12 @@ Nyx::integrate_comoving_a (const Real old_a_local, Real& new_a_local, const Real
                 return;
             prev_soln = new_a_local;
         }
+        return;
+    }
+
+    if (comoving_h == 0.0)
+    {
+        new_a_local = old_a_local;
         return;
     }
 
