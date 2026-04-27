@@ -246,6 +246,11 @@ public:
     static amrex::Real comoving_h;
     static         int comoving_type;
 
+    // SIV parameters
+    static         int siv_mode;
+    static amrex::Real siv_Omega_m;
+    static amrex::Real t_siv;
+
     //
     // Get the comoving coordinate "a"
     //

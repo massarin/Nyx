@@ -280,7 +280,9 @@ Gravity::solve_for_phi (int               level,
     if (parent->Geom(level).isAllPeriodic())
         CorrectRhsUsingOffset(level,Rhs);
 
-    Rhs.mult(Ggravity);
+    // SIV: G_eff(t) = G * (t/t0) = G * t_siv  (t0 = 1 by convention)
+    Real G_eff = (Nyx::siv_mode) ? Ggravity * Nyx::t_siv : Ggravity;
+    Rhs.mult(G_eff);
 
     Nyx* cs = dynamic_cast<Nyx*>(&parent->getLevel(level));
 

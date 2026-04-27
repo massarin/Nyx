@@ -112,6 +112,10 @@ Real Nyx::comoving_OmR = 0.0;
 Real Nyx::comoving_h;
 int  Nyx::comoving_type = 1;
 
+int  Nyx::siv_mode    = 0;
+Real Nyx::siv_Omega_m = 0.30;
+Real Nyx::t_siv       = 0.0;
+
 int Nyx::do_hydro = 0;
 int Nyx::add_ext_src = 0;
 int Nyx::heat_cool_type = 0;

@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include <DarkMatterParticleContainer.H>
+#include <Nyx.H>
 
 using namespace amrex;
 
@@ -129,17 +130,20 @@ DarkMatterParticleContainer::moveKickDrift (amrex::MultiFab&       acceleration,
         Array4<amrex::Real const> accel= accel_fab.array();
 
         int nc=AMREX_SPACEDIM;
+        int  siv_m = Nyx::siv_mode;
+        Real t_sv  = Nyx::t_siv;
         amrex::ParallelFor(np,
                            [=] AMREX_GPU_HOST_DEVICE ( long i)
                            {
                              update_dm_particle_single(pstruct[i],nc,
                                                        accel,
-                                                       plo,dxi,dt,a_old, a_half,do_move);
+                                                       plo,dxi,dt,a_old, a_half,do_move,
+                                                       siv_m, t_sv);
                            });
     }
 
     if (ac_ptr != &acceleration) delete ac_ptr;
-    
+
     ParticleLevel&    pmap          = this->GetParticles(lev);
     if (lev > 0 && sub_cycle)
     {
@@ -233,16 +237,18 @@ DarkMatterParticleContainer::moveKick (MultiFab&       acceleration,
         Array4<amrex::Real const> accel= accel_fab.array();
 
         int nc=AMREX_SPACEDIM;
+        int  siv_m = Nyx::siv_mode;
+        Real t_sv  = Nyx::t_siv;
         amrex::ParallelFor(np,
                            [=] AMREX_GPU_HOST_DEVICE ( long i)
                            {
                              update_dm_particle_single(pstruct[i],nc,
                                                        accel,
-                                                       plo,dxi,dt,a_half,a_new,do_move);
+                                                       plo,dxi,dt,a_half,a_new,do_move,
+                                                       siv_m, t_sv);
                            });
     }
 
-    
     if (ac_ptr != &acceleration) delete ac_ptr;
 }
 
@@ -253,7 +259,8 @@ void update_dm_particle_single (amrex::ParticleContainer<4, 0>::SuperParticleTyp
                                 amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& plo,
                                 amrex::GpuArray<amrex::Real,AMREX_SPACEDIM> const& dxi,
                                 const amrex::Real& dt, const amrex::Real& a_prev,
-                                const amrex::Real& a_cur, const int& do_move)
+                                const amrex::Real& a_cur, const int& do_move,
+                                const int siv_mode, const amrex::Real t_siv)
 {
     amrex::Real half_dt       = 0.5 * dt;
     amrex::Real a_cur_inv    = 1.0 / a_cur;
@@ -292,11 +299,17 @@ void update_dm_particle_single (amrex::ParticleContainer<4, 0>::SuperParticleTyp
         }
 
 
-        p.rdata(d+1)=a_prev*p.rdata(d+1)+half_dt * val;
-        p.rdata(d+1)*=a_cur_inv;
-    }        
+        if (siv_mode) {
+            // SIV half-kick: κ = 1/t, adds +κv to acceleration
+            amrex::Real kappa = 1.0 / t_siv;
+            p.rdata(d+1) = a_prev * p.rdata(d+1) * (1.0 + half_dt * kappa) + half_dt * val;
+        } else {
+            p.rdata(d+1) = a_prev * p.rdata(d+1) + half_dt * val;
+        }
+        p.rdata(d+1) *= a_cur_inv;
+    }
 
-       if (do_move == 1) 
+       if (do_move == 1)
          {
            for (int comp=0; comp < nc; ++comp) {
              p.pos(comp) = p.pos(comp) + dt_a_cur_inv * p.rdata(comp+1);

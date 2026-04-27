@@ -13,6 +13,17 @@ Real Nyx::dt_binpow             = -1.0;
 Real Nyx::initial_time          = -1.0;
 Real Nyx::final_time            = -1.0;
 
+static Real siv_H (Real t, Real Om)
+{
+    return 2.0 * t * t / (t * t * t - Om);
+}
+
+// Analytic inverse: given a, return t for SIV background
+static Real siv_t_from_a (Real a, Real Om)
+{
+    return std::cbrt(std::pow(a, 1.5) * (1.0 - Om) + Om);
+}
+
 void
 Nyx::read_comoving_params ()
 {
@@ -22,6 +33,9 @@ Nyx::read_comoving_params ()
     pp.get("comoving_OmM"   , comoving_OmM);
     pp.get("comoving_h"     , comoving_h);
     pp.query("comoving_OmR" , comoving_OmR);
+
+    pp.query("siv_mode",    siv_mode);
+    pp.query("siv_Omega_m", siv_Omega_m);
 
     pp.query("initial_z", initial_z);
     pp.query("final_a",   final_a);
@@ -68,6 +82,15 @@ Nyx::read_comoving_params ()
        // These are just defaults so the values are defined
        initial_time = 0.0;
          final_time = 0.0;
+    }
+
+    if (siv_mode) {
+        Real a_init = 1.0 / (1.0 + initial_z);
+        t_siv = siv_t_from_a(a_init, siv_Omega_m);
+        if (ParallelDescriptor::IOProcessor())
+            std::cout << "SIV mode: Omega_m=" << siv_Omega_m
+                      << "  t_in=" << std::cbrt(siv_Omega_m)
+                      << "  t_siv(z=" << initial_z << ")=" << t_siv << "\n";
     }
 }
 
@@ -537,12 +560,13 @@ Nyx::integrate_comoving_a (Real time,Real dt)
        first = false;
     } 
 
-    if (first) 
+    if (first)
     {
 
         // Update a
         old_a      = new_a;
         integrate_comoving_a(old_a, new_a, dt);
+        if (siv_mode) t_siv += dt;
 
         // Update the times
         old_a_time = new_a_time;
@@ -560,6 +584,7 @@ Nyx::integrate_comoving_a (Real time,Real dt)
     {
         // Leave old_a and old_a_time alone -- we have already swapped them
         integrate_comoving_a(old_a, new_a, dt);
+        if (siv_mode) t_siv += dt;
 
         // Update the new time only
         new_a_time = old_a_time + dt;
@@ -638,6 +663,36 @@ Nyx::integrate_comoving_a (const Real old_a_local, Real& new_a_local, const Real
     if (comoving_h == 0.0)
     {
         new_a_local = old_a_local;
+        return;
+    }
+
+    if (siv_mode)
+    {
+        // SIV: da/dt = H_siv(t)*a,  H_siv(t) = 2t^2/(t^3 - Om)
+        // t_siv is the SIV cosmic time at the start of this step.
+        prev_soln = 2.0e0;
+        for (iter = 1; iter <= 11; iter++)
+        {
+            nsteps  = static_cast<int>(std::round(std::pow(2, iter-1)));
+            Delta_t = dt / nsteps;
+            end_a   = old_a_local;
+            Real t_local = t_siv;
+
+            for (j = 1; j <= nsteps; j++)
+            {
+                start_a     = end_a;
+                start_slope = siv_H(t_local, siv_Omega_m) * start_a;
+                end_a       = start_a + start_slope * Delta_t;
+                end_slope   = siv_H(t_local + Delta_t, siv_Omega_m) * end_a;
+                end_a       = start_a + 0.5 * (start_slope + end_slope) * Delta_t;
+                t_local    += Delta_t;
+            }
+
+            new_a_local = end_a;
+            if (std::abs(1.0 - new_a_local / prev_soln) <= small_a_fac)
+                return;
+            prev_soln = new_a_local;
+        }
         return;
     }
 
