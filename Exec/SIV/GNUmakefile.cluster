@@ -2,7 +2,7 @@ AMREX_HOME ?= ../../subprojects/amrex
 
 TOP = ../..
 
-COMP     = gnu
+COMP     = intel
 USE_MPI  = TRUE
 USE_OMP  = FALSE
 
