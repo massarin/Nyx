@@ -1,0 +1,20 @@
+AMREX_HOME ?= ../../subprojects/amrex
+
+TOP = ../..
+
+COMP     = gnu
+USE_MPI  = TRUE
+USE_OMP  = FALSE
+
+PRECISION = DOUBLE
+DEBUG     = FALSE
+
+DIM      = 3
+NO_HYDRO = TRUE
+
+TINY_PROFILE = TRUE
+
+Bpack := ./Make.package
+Blocs := .
+
+include $(TOP)/Exec/Make.Nyx
